@@ -2,7 +2,7 @@
 
 <div>
 <h3>Fanfare</h3>
-<p>A free, cross-platform music player by <a href="https://otherworldly.media">Otherworldly Media</a>.</p>
+<h3>A free, cross-platform music player by <a href="https://otherworldly.media">Otherworldly Media</a>.</h3>
 </div>
 
 ![Fanfare screenshot](./screenshots/fanfare.png)
