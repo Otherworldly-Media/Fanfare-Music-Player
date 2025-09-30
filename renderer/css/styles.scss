@@ -1,0 +1,694 @@
+@use '../../node_modules/semantic-forms/dist/semantic-forms.css';
+@use '../../node_modules/tippy.js/dist/tippy.css';
+@use '../../node_modules/tabulator-tables/dist/css/tabulator_simple.min.css';
+
+:root {
+  --row-highlight: #0575ff; // overridden by electron
+  --accent-color: #0575ff; // overridden by electron
+  --accent-color-contrast-color: #fff; // overridden by electron
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.0s;
+}
+
+input[type="range"] {
+  outline: none;
+}
+
+.fade {
+  opacity: 0.5;
+}
+
+body {
+  font-family: sans-serif;
+  margin: 0;
+  user-select: none;
+
+  button, svg, input[type="image"] {
+    cursor: default;
+    outline: none;
+  }
+
+  img, svg, input[type="image"], dd button {
+    -webkit-user-drag: none;
+    pointer-events: auto;
+  }
+
+  form.semanticForms dd button.clear {
+    cursor: default;
+  }
+
+  form[hidden] {
+    display: none !important;
+  }
+
+  > main {
+    min-height: 100vh;
+
+    > nav#header {
+      background-color: #f6f6f6;
+      border-bottom: 1px #ddd solid;
+      -webkit-app-region: drag;
+      height: 36px;
+      padding: 8px 0;
+      display: flex;
+      align-items: center;
+
+      button:not(.clear)  {
+        position: relative;
+        background: none;
+        border-radius: 5px;
+        padding: 5px;
+        border: none;
+        -webkit-app-region: no-drag;
+        font-size: 1px;
+        width: 32px;
+        height: 32px;
+
+        svg, input[type="image"] {
+          width: 22px;
+          height: 22px;
+          opacity: 0.5;
+        }
+      }
+
+      button.active {
+        svg, input[type="image"] {
+          opacity: 1;
+        }
+      }
+
+      button.active::after {
+        content: "";
+        display: block;
+        position: absolute;
+        bottom: 3px;
+        left: calc(50% - 3px / 2);
+        width: 3px;
+        height: 3px;
+        background-color: var(--accent-color);
+        border-radius: 6px;
+        opacity: 1;
+      }
+
+      button#shuffleButton, button#repeatButton {
+        svg, input[type="image"] {
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      button svg.repeat-1 {
+        display: none;
+      }
+
+      button.selected input {
+        opacity: 1;
+      }
+
+      button:hover {
+        background-color: #eee;
+      }
+
+      button:active {
+        background-color: #e8e8e8;
+      }
+
+      > div#playbackControls {
+        display: flex;
+        justify-content: space-evenly;
+        align-items: center;
+        width: 100%;
+        margin: 0 0 0 80px;
+
+        div#buttons {
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto;
+        }
+
+        div#file {
+          flex: 1 1 50%;
+          align-items: center;
+          justify-content: center;
+          max-width: 50%;
+          text-align: center;
+
+          div#seek {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            input#seekBar {
+              flex: 1;
+              -webkit-app-region: no-drag;
+              margin: 0 10px;
+            }
+          }
+
+          p {
+            margin: 0;
+            font-size: 80%;
+            opacity: 0.5;
+          }
+
+          p#fileTitle {
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            -webkit-app-region: no-drag;
+          }
+
+          p#artistInfo {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            -webkit-app-region: no-drag;
+          }
+        }
+
+        div#volumeControls {
+          display: flex;
+          align-items: center;
+          flex: 0 0 auto;
+
+          button:first-of-type {
+            padding-right: 0;
+          }
+
+          input[type="range"] {
+            width: 70px;
+            -webkit-app-region: no-drag;
+          }
+
+          svg, input[type="image"] {
+            width: 16px;
+            height: 16px;
+          }
+        }
+      }
+
+      div#file.musicIcon {
+        background-image: url('renderer://images/music-note.png');
+        background-size: 26px;
+        background-repeat: no-repeat;
+        background-position-x: center;
+        background-position-y: 4px;
+      }
+
+      > div#search {
+        min-width: 150px;
+        width: 365px;
+        max-height: 46px;
+        margin-right: 6px;
+
+        dd {
+          position: relative;
+          top: -10px;
+
+          input {
+            -webkit-app-region: no-drag;
+          }
+        }
+      }
+
+      > div#buttonGroup1 {
+        width: 70px;
+        min-width: 70px;
+        display: flex;
+
+        svg, input[type="image"] {
+          width: 16px;
+          height: 16px;
+        }
+
+        button#playbackSpeedButton {
+          padding: 1px;
+
+          svg {
+            position: relative;
+            top: 1px;
+            width: 20px;
+            height: 20px;
+          }
+        }
+      }
+
+      > div#buttonGroup2 {
+        width: 70px;
+        min-width: 70px;
+
+        svg, input[type="image"] {
+          width: 16px;
+          height: 16px;
+        }
+      }
+
+      button#lyricsButton svg {
+        position: relative;
+        top: 1px;
+      }
+    }
+
+    div#content {
+      display: flex;
+      align-content: flex-start;
+      position: relative;
+
+      nav#sidebar {
+        min-width: 200px;
+        height: calc(100vh - 54px);
+        background-color: #eaeaea;
+        border-right: 1px #ddd solid;
+        overflow: hidden;
+
+        form#sidebarTabs {
+          background-color: #cfd0d3;
+          display: flex;
+          margin: 15px 10px;
+          border-radius: 5px;
+          font-size: 13px;
+
+          label {
+            display: inline-block;
+            padding: 5px;
+            flex-grow: 1;
+            text-align: center;
+            position: relative;
+          }
+
+          label::after {
+            content: "";
+            position: absolute;
+            right: 0;
+            top: 18%;
+            height: 64%;
+            width: 0;
+            border-right: 1px solid #ada9a7;
+          }
+
+          label.selected {
+            background-color: #9f9b99;
+            color: #fff;
+            border-radius: 5px;
+          }
+
+          label.selected::after {
+            border: 0;
+          }
+
+          label:last-of-type::after,
+          label:has(+ label.selected)::after {
+            border: 0;
+          }
+
+          input {
+            display: none;
+          }
+        }
+
+        hr {
+          border: 0;
+          border-top: 1px #cfd0d3 solid;
+          margin: 0 10px;
+        }
+
+        p.noneInQueue {
+          font-size: 80%;
+          text-align: center;
+          color: #6b6867;
+        }
+
+        ul:first-of-type {
+          margin: 15px 0 0 0;
+        }
+
+        ul {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+
+          button {
+            background: none;
+            border: none;
+            display: block;
+            width: calc(100% - 30px);
+            padding: 5px 15px;
+            width: 100%;
+            text-align: left;
+          }
+
+          button.selected {
+            background-color: #cfd0d3;
+            border-radius: 5px;
+          }
+
+          button#audioLibraryPlaylist, button.playlistButton {
+            display: flex;
+
+            span {
+              margin-left: 5px;
+            }
+          }
+
+          .draggingAudioFilesOverPlaylist button {
+            background-color: var(--accent-color);
+            color: var(--accent-color-contrast-color);
+            border-radius: 5px;
+          }
+        }
+
+        ol.queue {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+
+          p {
+            margin: 0;
+          }
+
+          div.metadata {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+          }
+
+          p.listLabel {
+            font-size: 80%;
+          }
+
+          form.clearButton {
+            width: unset;
+            container-type: unset;
+            font-size: 80%;
+
+            button {
+              padding: 5px 10px;
+              line-height: 10px;
+            }
+          }
+
+          div.info {
+            display: flex;
+            // flex: 1 1 auto; // grows to fill available space
+            flex: 1 1 0;
+            min-width: 0;
+
+            div.performer {
+              display: flex;
+              justify-content: space-evenly;
+              flex-direction: column;
+              align-items: flex-start;
+              width: 100%;
+
+              p.fileTitle {
+                margin: 0 10px;
+                font-size: 80%;
+                opacity: 0.8;
+              }
+
+              p.artistInfo {
+                width: 100%;
+                margin: 4px 0 0 10px;
+                font-size: 80%;
+                opacity: 0.5;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+              }
+            }
+          }
+
+          div.artwork {
+            background-color: #000;
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+          }
+
+          div.durationContainer {
+            flex: 0 0 60px;
+            display: flex;
+            align-items: center;
+
+            p.duration {
+              width: 100%;
+              text-align: right;
+              font-size: 90%;
+              opacity: 0.5;
+            }
+          }
+
+          li:nth-child(1), li:nth-child(2) {
+            hr {
+              margin: 0;
+            }
+          }
+
+          hr {
+            margin: 0 0 0 50px;
+          }
+        }
+
+        section#playlists, section#next, section#history {
+          padding: 0 10px;
+          position: relative;
+          min-width: 150px;
+          width: calc(100% - 20px);
+          height: 1px;
+          overflow-y: auto;
+          scrollbar-color: #b6b6b6 #eaeaea;
+        }
+
+        div#artwork {
+          width: 200px;
+          min-width: 200px;
+          background-color: #000;
+          background-size: contain;
+          background-repeat: no-repeat;
+          background-position: center;
+        }
+
+        div#artwork.big {
+          width: 100%;
+          height: 100%;
+          z-index: 9;
+          object-fit: contain; // ensures the whole image is visible and not stretched
+          object-position: unset;
+        }
+      }
+
+      > article {
+        flex: 1 1 auto;
+        min-height: calc(100vh - 54px);
+        overflow-y: auto;
+        display: flex;
+        align-items: center;
+
+        > form#noAudioFileLibrary {
+          display: block;
+          text-align: center;
+        }
+
+        > div#fileList {
+          flex: 1 1 auto;
+        }
+
+        > p {
+          flex: 1 1 auto;
+          text-align: center;
+        }
+
+        > .tabulator {
+          .tabulator-header {
+            border-color: #e6e6e6;
+
+            .tabulator-header-contents .tabulator-headers {
+              .tabulator-col {
+                font-weight: bold;
+                padding: 0 0 0 10px;
+                border-color: #e6e6e6;
+                cursor: default;
+
+                .tabulator-col-sorter {
+                  display: none;
+                }
+              }
+
+              .tabulator-col:not([aria-sort="none"]) {
+                .tabulator-col-sorter {
+                  display: flex;
+                }
+              }
+
+              .tabulator-col[aria-sort="none"] {
+                font-weight: normal;
+              }
+
+              .tabulator-col:hover {
+                background: none;
+              }
+
+              .tabulator-header-filter {
+                padding-right: 10px;
+
+                input[type="search"] {
+                  border: 1px #c0c0c0 solid;
+                  border-radius: 10px;
+                }
+              }
+            }
+          }
+
+          .tabulator-tableholder {
+            .tabulator-row {
+              border: none;
+              cursor: default;
+            }
+
+            .even-row {
+              background-color: #f9f9f9;
+            }
+
+            .odd-row {
+              background-color: #ffffff;
+            }
+
+            .playback_image {
+              svg.volume-up path, svg.volume-off path {
+                fill: var(--accent-color);
+              }
+
+              svg.play-queue path {
+                opacity: 0.25;
+              }
+            }
+
+            .tabulator-row.tabulator-selected {
+              background-color: var(--row-highlight);
+              color: var(--accent-color-contrast-color);
+
+              .playback_image {
+                svg path {
+                  fill: var(--accent-color-contrast-color);
+                }
+
+                svg.play-queue path {
+                  opacity: 0.75;
+                }
+              }
+            }
+
+            .tabulator-cell {
+              border: none;
+              padding: 8px;
+            }
+
+            [tabulator-field="playback_image"] {
+              padding: 0;
+
+              .playback_image {
+                display: flex;
+                height: 100%;
+                align-items: center;
+                justify-content: right;
+
+                svg, input[type="image"] {
+                  width: 16px;
+                  height: 16px;
+                }
+              }
+            }
+
+            .tabulator-col-resize-handle {
+              display: none;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+dialog {
+  z-index: 9;
+  border-radius: 20px;
+  padding: 20px;
+  border: 1px #c0c0c0 solid;
+
+  p:first-of-type {
+    margin-top: 0;
+  }
+
+  form.semanticForms {
+    container-type: normal;
+  }
+
+  input#playbackSpeedSlider {
+    width: 150px;
+  }
+}
+
+body.copyCursor {
+  cursor: copy !important;
+
+  button, .tabulator, .tabulator-row, .tabulator-col {
+    cursor: copy !important;
+  }
+}
+
+// hides tabulator row visibility while it is being moved
+.tabulator-moving {
+  display: none;
+}
+
+.resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+// overrides for semantic forms defaults
+form.semanticForms {
+  --semanticFormsInputFontSize: 14px; // from default 16px
+  --semanticFormsInputHeight: 36px; // from default of 38px
+  --semanticFormsInputMinWidth: 125px; // from default of 250px
+
+  button.clear {
+    width: 23px; // from default of 25px
+    height: 23px; // from default of 25px
+  }
+}
+
+// view transitions
+
+::view-transition-old(artwork-transition) {
+  animation: fade-out 1s;
+  z-index: 1;
+}
+
+::view-transition-new(artwork-transition) {
+  animation: fade-in 1s;
+  z-index: 2;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}

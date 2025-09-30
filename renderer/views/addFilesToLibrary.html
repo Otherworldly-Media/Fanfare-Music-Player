@@ -1,0 +1,15 @@
+<include src="layouts/main">
+  <arg pageContent>
+    <form class="semanticForms noSubmit" id="noAudioFileLibrary">
+      <div id="noAudioFileLibrarySelectFiles" hidden>
+        <p>You have no audio file library yet.</p>
+        <p>Select a directory to use as your library.</p>
+        <button id="selectAudioLibraryDirectory">Select library directory</button>
+      </div>
+      <div id="selectAudioLibraryDirectoryProgressBar" hidden>
+        <p>Adding files to your library…</p>
+        <p><progress value="" max="100"></progress></p>
+      </div>
+    </form>
+  </arg>
+</include>

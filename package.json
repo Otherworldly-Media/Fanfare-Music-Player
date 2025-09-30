@@ -1,0 +1,155 @@
+{
+  "name": "fanfare-music-player",
+  "description": "🎺 Free, cross-platform music player by Otherworldly Media.",
+  "version": "0.1.0",
+  "author": "Otherworldly Media <kethinov@gmail.com>",
+  "contributors": [
+    {
+      "name": "Contributors",
+      "url": "https://github.com/Otherworldly-Media/Fanfare-Music-Player/graphs/contributors"
+    }
+  ],
+  "license": "CC-BY-NC-4.0",
+  "homepage": "https://otherworldly.media",
+  "main": "main/main.js",
+  "build": {
+    "appId": "com.fanfaremusicplayer",
+    "productName": "Fanfare",
+    "extraMetadata": {
+      "name": "Fanfare"
+    },
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+      "!**/asar-unpack/**",
+      "!**/.npm-cache/**",
+      "!**/*.md",
+      "!**/test*",
+      "!**/*.scss",
+      "!**/renderer/*.js",
+      "!**/renovate.json",
+      "renderer/.build/renderer.bundle.js",
+      "renderer/images/*"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/ffmpeg*"
+    ],
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "snap",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "Audio",
+      "maintainer": "otherworldlymedia",
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "ia32",
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "ia32",
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@braintree/sanitize-url": "7.1.1",
+    "better-sqlite3": "12.4.1",
+    "electron-context-menu": "4.1.1",
+    "electron-store": "11.0.0",
+    "electron-window-state": "5.0.3",
+    "ffmpeg-static": "5.2.0",
+    "node-taglib-sharp": "6.0.1",
+    "semantic-forms": "5.1.9",
+    "single-page-express": "2.0.4",
+    "sortablejs": "1.15.6",
+    "spc-tag": "1.0.3",
+    "tabulator-tables": "6.3.1",
+    "teddy": "1.1.4",
+    "tippy.js": "6.3.7",
+    "tmp": "0.2.5"
+  },
+  "devDependencies": {
+    "@electron/asar": "4.0.1",
+    "@electron/rebuild": "4.0.1",
+    "@playwright/test": "1.55.1",
+    "cross-env": "10.0.0",
+    "electron": "38.2.0",
+    "electron-builder": "26.0.12",
+    "sass": "1.93.2",
+    "standard": "17.1.2",
+    "webpack": "5.101.3"
+  },
+  "scripts": {
+    "start": "cross-env DEV_MODE=true node build/bundle-cli.js && cross-env DEV_MODE=true electron .",
+    "build": "node build/build.js && electron-rebuild",
+    "build-self": "cross-env BUILD_TARGET=self node build/build.js && electron-rebuild",
+    "build-lin": "cross-env BUILD_TARGET=lin node build/build.js && electron-rebuild",
+    "build-mac": "cross-env BUILD_TARGET=mac node build/build.js && electron-rebuild",
+    "build-win": "cross-env BUILD_TARGET=win node build/build.js && electron-rebuild",
+    "unpack-mac": "rm -rf asar-unpack && asar extract dist/mac/*.app/Contents/Resources/app.asar ./asar-unpack",
+    "lint": "standard --fix",
+    "test": "playwright test test/*",
+    "postinstall": "electron-rebuild"
+  }
+}
