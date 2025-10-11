@@ -402,6 +402,7 @@ function onFilePlaybackEnd () {
       nextFile(true)
       displayMetadata()
       if (window.nextFile) addNextFilesToAutomaticPlayQueue()
+      else setPlayQueueImages()
     }
   }
 }
