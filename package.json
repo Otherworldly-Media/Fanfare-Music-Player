@@ -120,7 +120,7 @@
     "electron-window-state": "5.0.3",
     "ffmpeg-static": "5.2.0",
     "node-taglib-sharp": "6.0.1",
-    "semantic-forms": "5.1.9",
+    "semantic-forms": "5.3.4",
     "single-page-express": "2.0.4",
     "sortablejs": "1.15.6",
     "spc-tag": "1.0.3",
