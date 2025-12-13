@@ -134,7 +134,7 @@
     "@electron/rebuild": "4.0.1",
     "@playwright/test": "1.55.1",
     "cross-env": "10.1.0",
-    "electron": "38.2.1",
+    "electron": "39.2.7",
     "electron-builder": "26.0.12",
     "sass": "1.93.2",
     "standard": "17.1.2",
