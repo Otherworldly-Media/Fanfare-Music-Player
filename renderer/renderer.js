@@ -93,6 +93,7 @@ async function init () {
   const app = singlePageExpress({
     expressVersion: 4,
     disableTopbar: true,
+    alwaysSkipViewTransition: true,
     templatingEngine,
     templates,
     defaultTarget: 'main > article',
