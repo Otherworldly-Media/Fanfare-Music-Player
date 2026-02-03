@@ -453,7 +453,7 @@ async function updateQueue (which) {
   } else {
     document.getElementById(which).parentNode.querySelector('p.noneInQueue').style.display = 'none'
   }
-  let listLabel = '<p class="listLabel"><span class="playingNext">Playing Next</span> <span class="halfTranslucent">from</span> <strong>Library</strong></p>'
+  let listLabel = `<p class="listLabel"><span class="playingNext">Playing Next</span> <span class="halfTranslucent">from</span> <strong>${window.currentPlaylist || 'Library'}</strong></p>`
   if (which === 'playHistory') listLabel = '<p class="listLabel"><span class="previouslyPlayed">Previously Played</span></p>'
   let items = `
       <li>

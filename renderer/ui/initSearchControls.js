@@ -1,43 +1,72 @@
 const electron = window.electron
 
+function searchFilter () {
+  if (!window.library) return
+  const query = document.getElementById('searchBar').value.toLowerCase()
+  const searchColumns = ['firstPerformer', 'album', 'title', 'year'] // excludes file_path
+  if (typeof table !== 'undefined') {
+    window.table.setFilter((data, filterParams) => {
+      return searchColumns.some(col => {
+        const metadataField = (data[col] || '').toLowerCase()
+        const queryWords = query.split(' ')
+        for (const word of queryWords) {
+          if (!metadataField.includes(word)) {
+            return false
+          }
+        }
+        return true
+      })
+    })
+  }
+  electron.store.set('searchBarValue', query)
+
+  // re-apply banding to all visible rows
+  window.table.getRows('active').forEach((row, idx) => {
+    const rowIndex = row.getPosition(true) // true = position in currently displayed data
+    if (rowIndex % 2 === 0) {
+      row.getElement().classList.add('even-row')
+      row.getElement().classList.remove('odd-row')
+    } else {
+      row.getElement().classList.add('odd-row')
+      row.getElement().classList.remove('even-row')
+    }
+  })
+}
+window.searchFilter = searchFilter
+
 module.exports = () => {
+  window.table.on('tableBuilt', () => {
+    searchFilter()
+  })
+
+  window.table.on('renderComplete', () => {
+    // first render
+    if (!window.tableHasRenderedOnce) {
+      window.tableHasRenderedOnce = true
+
+      // restore previous global search
+      if (electron.store.get('searchBarValue')) {
+        document.getElementById('searchBar').value = electron.store.get('searchBarValue')
+        searchFilter()
+      }
+
+      // open filters if they were open before
+      if (electron.store.get('filtersOpen')) document.getElementById('filterButton').click()
+
+      // monitor column inputs
+      window.table.on('dataFiltered', (filters) => {
+        const headerFilters = window.table.getHeaderFilters()
+        electron.store.set('filterValues', headerFilters)
+      })
+    }
+  })
+
+  // things that should only execute once are below
   if (window.searchControlsInitialized) return
   window.searchControlsInitialized = true
 
   // global search
   document.getElementById('searchBar').addEventListener('input', searchFilter)
-  function searchFilter () {
-    if (!window.library) return
-    const query = document.getElementById('searchBar').value.toLowerCase()
-    const searchColumns = ['firstPerformer', 'album', 'title', 'year'] // excludes file_path
-    if (typeof table !== 'undefined') {
-      window.table.setFilter((data, filterParams) => {
-        return searchColumns.some(col => {
-          const metadataField = (data[col] || '').toLowerCase()
-          const queryWords = query.split(' ')
-          for (const word of queryWords) {
-            if (!metadataField.includes(word)) {
-              return false
-            }
-          }
-          return true
-        })
-      })
-    }
-    electron.store.set('searchBarValue', query)
-
-    // re-apply banding to all visible rows
-    window.table.getRows('active').forEach((row, idx) => {
-      const rowIndex = row.getPosition(true) // true = position in currently displayed data
-      if (rowIndex % 2 === 0) {
-        row.getElement().classList.add('even-row')
-        row.getElement().classList.remove('odd-row')
-      } else {
-        row.getElement().classList.add('odd-row')
-        row.getElement().classList.remove('even-row')
-      }
-    })
-  }
 
   // add placeholders to search based on actual audio file library
   document.getElementById('searchBar').addEventListener('focus', () => {
@@ -115,28 +144,6 @@ module.exports = () => {
     event.preventDefault()
     if (typeof window.table !== 'undefined') {
       window.alertDialog({ html: '<p>Lyrics not implemented yet.</p>' })
-    }
-  })
-
-  // first render
-  window.table.on('renderComplete', () => {
-    if (!window.tableHasRenderedOnce) {
-      window.tableHasRenderedOnce = true
-
-      // restore previous global search
-      if (electron.store.get('searchBarValue')) {
-        document.getElementById('searchBar').value = electron.store.get('searchBarValue')
-        searchFilter()
-      }
-
-      // open filters if they were open before
-      if (electron.store.get('filtersOpen')) document.getElementById('filterButton').click()
-
-      // monitor column inputs
-      window.table.on('dataFiltered', (filters) => {
-        const headerFilters = window.table.getHeaderFilters()
-        electron.store.set('filterValues', headerFilters)
-      })
     }
   })
 }

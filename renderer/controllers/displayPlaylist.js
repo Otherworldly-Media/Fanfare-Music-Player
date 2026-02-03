@@ -7,6 +7,7 @@ module.exports = (app) => {
       playlist = 'Library'
       window.viewing = 'library'
       window.library = window.library || await require('models/getLibrary')()
+      window.currentPlaylist = null
       members = window.library
     } else {
       window.viewing = 'playlist'
