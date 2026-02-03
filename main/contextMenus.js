@@ -28,7 +28,7 @@ module.exports = async () => {
             return menu
           }
           case 'playlistAudioFile': {
-            removeFiles()
+            removeFromPlaylist()
             removeFromLibrary()
             return menu
           }
@@ -89,20 +89,22 @@ function resetLibrary () {
   )
 }
 
-async function removeFiles () {
-  const result = await dialog.showMessageBox(mainWindow, {
-    type: 'question',
-    title: 'Confirm',
-    buttons: ['No', 'Yes'],
-    defaultId: 0,
-    cancelId: 1,
-    message: `Are you sure you want to remove ${global.contextMenuUIContext.selectedFiles.length > 1 ? 'these files' : 'this file'} from your playlist?`
-  })
-  if (result.response === 1) {
-    const files = []
-    for (const file of global.contextMenuUIContext.selectedFiles) files.push([file, global.contextMenuUIContext.currentPlaylist])
-    db.query('delete from playlist_members where file_path=? and playlist=?', files)
-    mainWindow.webContents.send('updateUI', { action: 'removeAudioFiles', params: global.contextMenuUIContext.selectedFiles })
+async function removeFromPlaylist () {
+  const removeFiles = async () => {
+    const result = await dialog.showMessageBox(mainWindow, {
+      type: 'question',
+      title: 'Confirm',
+      buttons: ['No', 'Yes'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `Are you sure you want to remove ${global.contextMenuUIContext.selectedFiles.length > 1 ? 'these files' : 'this file'} from your playlist?`
+    })
+    if (result.response === 1) {
+      const files = []
+      for (const file of global.contextMenuUIContext.selectedFiles) files.push([file, global.contextMenuUIContext.currentPlaylist])
+      db.query('delete from playlist_members where file_path=? and playlist=?', files)
+      mainWindow.webContents.send('updateUI', { action: 'removeAudioFiles', params: global.contextMenuUIContext.selectedFiles })
+    }
   }
   if (global.contextMenuUIContext.selectedFiles.length > 1) menu.push({ label: 'Remove files from playlist', click: removeFiles })
   else menu.push({ label: 'Remove file from playlist', click: removeFiles })

@@ -99,3 +99,9 @@ div.resizer {
     cursor: copy !important;
   }
 }
+
+// hide the drag helper row
+.tabulator-row.tabulator-row-moving,
+.tabulator-row.tabulator-moving {
+  display: none !important;
+}

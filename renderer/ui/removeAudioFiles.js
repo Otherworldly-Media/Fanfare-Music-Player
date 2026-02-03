@@ -21,8 +21,8 @@ module.exports = async (params) => {
   if (table.getRows(true).length === 0) {
     if (window.viewing === 'playlist') {
       await window.app.triggerRoute({ route: '/displayPlaylist', body: { playlist: window.currentPlaylist } })
-    }
-  } else require('ui/deleteLibrary')()
+    } else require('ui/deleteLibrary')()
+  }
 
   if (window.viewing === 'playlist') window.library = await require('models/getLibrary')()
 }
