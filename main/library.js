@@ -11,7 +11,7 @@ ipcMain.handle('files-dropped', async (event, paths) => {
 
 // handle importing a new audio file library
 const getAudioFileMetadata = require('../models/getAudioFileMetadata')
-const TAGLIB_ACCESSORS = getAudioFileMetadata.TAGLIB_ACCESSORS
+const TAGLIB_ACCESSORS = require('../models/getTaglibAccessors')
 ipcMain.handle('addFilesToLibrary', async (event, filesToAdd, chunk, filesAdded) => await addFilesToLibrary(filesToAdd, chunk, filesAdded))
 
 async function addFilesToLibrary (filesToAdd, chunk, filesAdded) {

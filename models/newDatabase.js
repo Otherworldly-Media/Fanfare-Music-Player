@@ -1,6 +1,5 @@
 const db = global.db
-const getAudioFileMetadata = require('../models/getAudioFileMetadata')
-const TAGLIB_ACCESSORS = getAudioFileMetadata.TAGLIB_ACCESSORS
+const TAGLIB_ACCESSORS = require('../models/getTaglibAccessors')
 
 module.exports = () => {
   // create library table

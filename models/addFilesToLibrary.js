@@ -2,7 +2,7 @@ const { parentPort } = require('worker_threads')
 const fs = require('fs')
 
 const getAudioFileMetadata = require('../models/getAudioFileMetadata')
-const TAGLIB_ACCESSORS = getAudioFileMetadata.TAGLIB_ACCESSORS
+const TAGLIB_ACCESSORS = require('../models/getTaglibAccessors')
 
 parentPort.on('message', ({ chunks, chunk }) => {
   const files = []
