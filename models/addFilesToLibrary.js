@@ -14,7 +14,7 @@ parentPort.on('message', ({ chunks, chunk }) => {
     let specialType = null // special types are files with metadata that isn't supported by taglib
     if (file.endsWith('.spc')) specialType = 'spc' // SPC (super nintendo audio file)
     if (
-      file.endsWith('m4a') || // AAC or ALAC
+      file.endsWith('.m4a') || // AAC or ALAC
       file.endsWith('.flac') || // FLAC
       file.endsWith('.mp3') || // MP3
       file.endsWith('.opus') || // Opus
@@ -26,8 +26,7 @@ parentPort.on('message', ({ chunks, chunk }) => {
     ) {
       const metadata = getAudioFileMetadata({
         file,
-        specialType,
-        skipBinaries: true // prevents the picture data from being serialized, which would slow things down a lot
+        specialType
       })
 
       // set columns to write to the database

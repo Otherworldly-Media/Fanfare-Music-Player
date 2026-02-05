@@ -4,6 +4,14 @@ const taglibSharp = require('node-taglib-sharp')
 const TAGLIB_ACCESSORS = require('./getTaglibAccessors')
 
 function getAudioFileMetadata (params) {
+  // uncomment this to test this method against static data without invoking taglib or analyzing binary data
+  // return {
+  //   album: 'Test Album',
+  //   title: 'Test Title',
+  //   performers: ['Test Artist'],
+  //   year: 2024
+  // }
+
   const file = params.file
   const specialType = params.specialType // special types are file types that can't be processed by taglib
   const metadata = {}
@@ -11,18 +19,8 @@ function getAudioFileMetadata (params) {
     try {
       const myFile = taglibSharp.File.createFromPath(file, '')
       TAGLIB_ACCESSORS.forEach(key => {
-        metadata[key] = myFile.tag[key]
-        if (!params.skipBinaries && key === 'pictures' && Array.isArray(myFile.tag.pictures)) {
-          // serialize each picture object so that it can be transferred to the renderer
-          metadata.pictures = myFile.tag.pictures.map(pic => ({
-            mimeType: pic.mimeType || pic._mimeType,
-            description: pic.description || pic._description,
-            type: pic.type || pic._type,
-            width: pic.width || pic._width,
-            height: pic.height || pic._height,
-            colorDepth: pic.colorDepth || pic._colorDepth,
-            data: Buffer.from(pic.data || pic._data?.data || []).toString('base64') // convert the image data to a base64 string
-          }))
+        if (key !== 'pictures') {
+          metadata[key] = myFile.tag[key]
         }
       })
     } catch (error) {
@@ -111,5 +109,4 @@ function getAudioFileMetadata (params) {
   return metadata
 }
 
-getAudioFileMetadata.TAGLIB_ACCESSORS = TAGLIB_ACCESSORS
 module.exports = getAudioFileMetadata

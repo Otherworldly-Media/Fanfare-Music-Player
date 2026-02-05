@@ -271,45 +271,83 @@ async function loadFile (file) {
   // skip file preload if it's already preloaded
   if (window.fileCaches[file]?.audioBuffer) return
 
+  // start loading
   window.loadingFile = file
+  let pcmBuffer // var to store raw PCM audio data
+  let audioBuffer // var to store audio binary in the Web Audio API's format
 
-  let audioBuffer
+  // special handler for SPC files
+  if (file.endsWith('.spc')) {
+    // get SPC binary data from the main process
+    const rawAudioData = await window.electron.getBinaryData(file)
+    const rawArrayBuffer = new Uint8Array(rawAudioData.buffer)
+
+    // convert the SPC file to PCM audio
+    const SPCPlayer = await require('ui/loadSpcPlayer')()
+    pcmBuffer = await SPCPlayer.renderToPCMBuffer(rawArrayBuffer)
+  }
+
+  // load PCM data into the Web Audio API
   try {
-    // get binary data from the main process
-    const audioData = await window.electron.getBinaryData(file)
-    const arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength)
-    audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer)
-  } catch (error) {
-    if (error.message === 'Unable to decode audio data') {
-      // convert spc files to wav
-      if (file.endsWith('.spc')) {
-        // get spc binary data from the main process
-        const rawAudioData = await window.electron.getBinaryData(file)
-        const rawArrayBuffer = new Uint8Array(rawAudioData.buffer) // convert it to a Uint8Array
+    // if we don't already have the PCM data, get PCM data from FFmpeg from the main process
+    if (!pcmBuffer) {
+      // we get the data in chunks via ipc so the UI doesn't freeze
+      const pcmChunks = []
+      await new Promise((resolve, reject) => {
+        const listenerEvent = window.electron.onConvertToPCMAudioChunk((chunk) => {
+          pcmChunks.push(new Uint8Array(chunk))
+        })
+        window.electron.onConvertToPCMAudioComplete(() => {
+          window.electron.offConvertToPCMAudioChunk(listenerEvent) // remove listener so listeners don't pile up in the renderer process creating a memory leak
+          resolve()
+        })
+        window.electron.convertToPCMAudio(file).catch(reject)
+      })
 
-        // use SPCPlayer to make a wav file
-        const SPCPlayer = await require('ui/loadSpcPlayer')()
-        const wavBlob = await SPCPlayer.renderToWavBlob(rawArrayBuffer)
-
-        // create audio buffer from wav file
-        const wavArrayBuffer = await wavBlob.arrayBuffer()
-        const audioData = new Uint8Array(wavArrayBuffer)
-        const arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength)
-        audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer)
-      } else {
-        // convert file to flac with ffmpeg
-        const flacBuffer = await window.electron.convertToFlacBuffer(file)
-
-        // create audio buffer from flac file
-        const audioData = flacBuffer
-        const arrayBuffer = audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength)
-        audioBuffer = await window.audioContext.decodeAudioData(arrayBuffer)
+      // reassemble the chunks into pcm binary
+      const totalLength = pcmChunks.reduce((sum, chunk) => sum + chunk.length, 0)
+      pcmBuffer = new Uint8Array(totalLength)
+      let offset = 0
+      for (const chunk of pcmChunks) {
+        pcmBuffer.set(chunk, offset)
+        offset += chunk.length
       }
-    } else {
-      console.error(error)
-      window.loadingFile = false
-      return window.alertDialog({ html: '<p>There was an unknown error trying to play the file.</p>' })
     }
+
+    // convert the pcm binary into a Web Audio API buffer
+    const float32Data = new Float32Array(
+      pcmBuffer.buffer,
+      pcmBuffer.byteOffset,
+      Math.floor(pcmBuffer.byteLength / 4)
+    )
+    const numberOfChannels = 2
+    const sampleRate = 48000
+    const numberOfSamples = Math.floor(float32Data.length / numberOfChannels)
+    audioBuffer = window.audioContext.createBuffer(numberOfChannels, numberOfSamples, sampleRate)
+
+    // de-interleave channels: FFmpeg and SPCPlayer output PCM data in interleaved format (all channels mixed together), but the Web Audio API's AudioBuffer expects planar format (separate arrays per channel)
+    // we will de-interleave in chunks and yield to the event loop to keep the UI responsive
+    const chunkSize = 100000 // process 100k samples at a time
+    let channelOffset = 0
+    await new Promise((resolve) => {
+      const processChunk = () => {
+        const chunkEnd = Math.min(channelOffset + chunkSize, numberOfSamples)
+        for (let channel = 0; channel < numberOfChannels; channel++) {
+          const channelData = audioBuffer.getChannelData(channel)
+          for (let i = channelOffset; i < chunkEnd; i++) {
+            channelData[i] = float32Data[i * numberOfChannels + channel] // extract every Nth sample for this channel
+          }
+        }
+        channelOffset = chunkEnd
+        if (channelOffset < numberOfSamples) setTimeout(processChunk, 0) // yield to event loop to keep the UI responsive
+        else resolve()
+      }
+      processChunk()
+    })
+  } catch (error) {
+    console.error(error)
+    window.loadingFile = false
+    return window.alertDialog({ html: '<p>There was an unknown error trying to play the file.</p>' })
   }
 
   // cache audio buffer for later reuse
@@ -321,13 +359,6 @@ async function loadFile (file) {
   window.fileCaches[file].audioBuffer = audioBuffer // cache the audioBuffer
 
   // get media metadata
-  await getMetadata(file)
-
-  window.loadingFile = false
-}
-
-// get media metadata
-async function getMetadata (file) {
   if (!window.fileCaches[file]) window.fileCaches[file] = {}
   if (!window.fileCaches[file].metadata) {
     if (file.endsWith('.spc')) {
@@ -338,7 +369,28 @@ async function getMetadata (file) {
     } else {
       window.fileCaches[file].metadata = await window.electron.getAudioFileMetadata({ file })
     }
+
+    // load pictures separately via chunked ipc
+    const pictureChunks = []
+    await window.electron.getAudioFilePictures(
+      { file },
+      (chunk) => {
+        pictureChunks.push(chunk)
+      },
+      () => {
+        const json = pictureChunks.join('')
+        const picturesPayload = JSON.parse(json)
+        window.fileCaches[file].metadata.pictures = picturesPayload.pictures || []
+        if (file === window.currentFile) {
+          updateAlbumArt()
+        }
+        updateQueue('manualPlayQueue')
+        updateQueue('automaticPlayQueue')
+      }
+    )
   }
+
+  window.loadingFile = false
 }
 
 // play an audio file or queue it to be played after the current audio file is done
@@ -522,9 +574,10 @@ async function updateQueue (which) {
 
       // animate artwork transition
       if (domEl.querySelector('.artwork').style.backgroundImage !== `url("data:${artworkMimeType};base64,${artworkDataUri}")`) { // do not trigger the transition if the artwork has not changed
-        document.startViewTransition(() => {
-          domEl.querySelector('.artwork').style.backgroundImage = `url("data:${artworkMimeType};base64,${artworkDataUri}")`
-        })
+        // the view transition is commented out because it blocks clicking around the play queue area for a full second; see https://github.com/Otherworldly-Media/Fanfare-Music-Player/issues/86
+        // document.startViewTransition(() => {
+        domEl.querySelector('.artwork').style.backgroundImage = `url("data:${artworkMimeType};base64,${artworkDataUri}")`
+        // })
       }
     }
   }
@@ -542,10 +595,7 @@ async function updateQueue (which) {
 }
 
 function displayMetadata () {
-  const fileCache = window.fileCaches[window.currentFile]
-
-  // set playback controls metadata
-  if (fileCache) {
+  if (window.fileCaches[window.currentFile]) {
     document.getElementById('duration').textContent = formatTime(window.fileCaches[window.currentFile].audioBuffer.duration)
     if (window.fileCaches[window.currentFile].metadata) {
       document.getElementById('file').classList.remove('musicIcon')
@@ -555,6 +605,13 @@ function displayMetadata () {
       document.getElementById('fileTitle').innerHTML = window.fileCaches[window.currentFile].metadata.title
     }
   }
+  updateAlbumArt()
+  window.addTitleToEllipsisOnPlaybackMetadata()
+}
+window.displayMetadata = displayMetadata
+
+function updateAlbumArt () {
+  const fileCache = window.fileCaches[window.currentFile]
 
   // set artwork
   const defaultMimeType = 'image/png'
@@ -572,9 +629,10 @@ function displayMetadata () {
   // animate artwork transition
   if (document.getElementById('artwork').style.backgroundImage !== `url("data:${artworkMimeType};base64,${artworkDataUri}")`) { // do not trigger the transition if the artwork has not changed
     document.getElementById('artwork').style.viewTransitionName = 'artwork-transition' // apply and remove view transition only for this action; don't leave it applied in css permanently; this is to prevent it from triggering with repaints and reflows
-    document.startViewTransition(() => {
-      document.getElementById('artwork').style.backgroundImage = `url("data:${artworkMimeType};base64,${artworkDataUri}")`
-    })
+    // the view transition is commented out because it blocks clicking around the play queue area for a full second; see https://github.com/Otherworldly-Media/Fanfare-Music-Player/issues/86
+    // document.startViewTransition(() => {
+    document.getElementById('artwork').style.backgroundImage = `url("data:${artworkMimeType};base64,${artworkDataUri}")`
+    // })
     setTimeout(() => {
       document.getElementById('artwork').style.viewTransitionName = ''
     }, 1000)
@@ -582,7 +640,6 @@ function displayMetadata () {
 
   window.addTitleToEllipsisOnPlaybackMetadata()
 }
-window.displayMetadata = displayMetadata
 
 // format time in minutes:seconds
 function formatTime (seconds) {
