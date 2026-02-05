@@ -10,7 +10,6 @@ ipcMain.handle('files-dropped', async (event, paths) => {
 })
 
 // handle importing a new audio file library
-const getAudioFileMetadata = require('../models/getAudioFileMetadata')
 const TAGLIB_ACCESSORS = require('../models/getTaglibAccessors')
 ipcMain.handle('addFilesToLibrary', async (event, filesToAdd, chunk, filesAdded) => await addFilesToLibrary(filesToAdd, chunk, filesAdded))
 
@@ -84,41 +83,84 @@ async function addFilesToLibrary (filesToAdd, chunk, filesAdded) {
 
 // handle open binary data calls from renderer
 ipcMain.handle('getBinaryData', async (event, file) => {
+  // file = path.join(process.cwd(), 'sample_audio/White Noise.m4a') // uncomment this to test this method against a hardcoded, small file
   const fileBuffer = fs.readFileSync(file) // read the file as a buffer
   return fileBuffer // send the binary data to the renderer process
 })
 
-// handle open file metadata calls from renderer
+// handle get file metadata calls from renderer, except for pictures
+const getAudioFileMetadata = require('../models/getAudioFileMetadata')
 ipcMain.handle('getAudioFileMetadata', async (event, params) => getAudioFileMetadata(params))
 
-// convert file to FLAC and get audio data as a Buffer
+// handle get file picture metadata from renderer
+const getAudioFilePictures = require('../models/getAudioFilePictures')
+ipcMain.handle('getAudioFilePictures', async (event, params) => {
+  const pictureRequestId = params.pictureRequestId // use pictureRequestId from renderer
+  const pictureMetadata = getAudioFilePictures(params)
+  const pictures = pictureMetadata.pictures || []
+
+  const json = JSON.stringify({ pictures })
+  const CHUNK_SIZE = 256 * 1024
+
+  for (let offset = 0; offset < json.length; offset += CHUNK_SIZE) {
+    const chunk = json.slice(offset, offset + CHUNK_SIZE)
+    event.sender.send('getAudioFilePictures-chunk', { pictureRequestId, chunk })
+  }
+
+  event.sender.send('getAudioFilePictures-complete', { pictureRequestId, file: params.file })
+  return { pictureRequestId }
+})
+
+// convert file to pcm data
+const { spawn } = require('child_process')
 const ffmpegStatic = require('ffmpeg-static')
 const ffmpegPath = ffmpegStatic.includes('app.asar') ? ffmpegStatic.replace('app.asar', 'app.asar.unpacked') : ffmpegStatic // if running from asar, replace with unpacked path
+ipcMain.handle('convertToPCMAudio', async (event, filePath) => {
+  // filePath = path.join(process.cwd(), 'sample_audio/White Noise.m4a') // uncomment this to test this method against a hardcoded, small file
 
-const { spawn } = require('child_process')
-const tmp = require('tmp')
-ipcMain.handle('convertToFlacBuffer', async (event, filePath) => {
+  const chunks = []
+  const CHUNK_SIZE = 262144 // 256KB chunks (65536 float32 samples)
+
   return new Promise((resolve, reject) => {
-    const tmpFile = tmp.tmpNameSync({ postfix: '.flac' })
     const ffmpeg = spawn(ffmpegPath, [
       '-i', filePath,
-      '-f', 'flac',
-      tmpFile
+      '-f', 'f32le',
+      '-acodec', 'pcm_f32le',
+      '-ar', '48000',
+      '-ac', '2',
+      'pipe:1'
     ])
 
-    ffmpeg.stderr.on('data', data => {
-      // ffmpeg logs lots of non-error output to stderr unfortunately
-      // const output = data.toString()
+    ffmpeg.stdout.on('data', chunk => {
+      chunks.push(chunk)
+
+      // send chunk via ipc when we have enough data
+      if (Buffer.concat(chunks).length >= CHUNK_SIZE) {
+        const buffer = Buffer.concat(chunks)
+        const toSend = buffer.subarray(0, CHUNK_SIZE)
+        event.sender.send('convertToPCMAudio-chunk', toSend)
+
+        // keep remainder for next chunk
+        if (buffer.length > CHUNK_SIZE) {
+          chunks.length = 0
+          chunks.push(buffer.subarray(CHUNK_SIZE))
+        } else {
+          chunks.length = 0
+        }
+      }
     })
+
     ffmpeg.on('error', reject)
     ffmpeg.on('close', code => {
       if (code === 0) {
-        const buffer = fs.readFileSync(tmpFile)
-        fs.unlinkSync(tmpFile)
-        resolve(buffer)
+        // send final chunk
+        if (chunks.length > 0) {
+          event.sender.send('convertToPCMAudio-chunk', Buffer.concat(chunks))
+        }
+        event.sender.send('convertToPCMAudio-complete')
+        resolve()
       } else {
-        fs.existsSync(tmpFile) && fs.unlinkSync(tmpFile)
-        reject(new Error('unknown FFmpeg error'))
+        reject(new Error('FFmpeg failed'))
       }
     })
   })
