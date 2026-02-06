@@ -227,6 +227,7 @@ window.playAudioFile = async function (file, via, gapless) {
     stopPlayback()
   }
 
+  window.userPressedPlay = true
   window.userStoppedPlayback = false
 
   clearPlayQueueImages()
@@ -273,7 +274,7 @@ async function loadFile (file) {
 
   // start loading
   window.loadingFile = file
-  if (!window.playing) document.documentElement.classList.add('global-wait')
+  if (!window.playing && window.userPressedPlay) document.documentElement.classList.add('global-wait')
   let pcmBuffer // var to store raw PCM audio data
   let audioBuffer // var to store audio binary in the Web Audio API's format
 
@@ -411,6 +412,7 @@ async function queueAudio (file, offset = 0, seek = false) {
     if (window.fileCaches[window.currentFile]) {
       source.start(0, offset)
       window.playing = true
+      window.userPressedPlay = false
       document.documentElement.classList.remove('global-wait')
       window.fileCaches[window.currentFile].source = source
       window.currentSource = source
@@ -557,10 +559,18 @@ async function updateQueue (which) {
       let artworkMimeType
       let artworkDataUri
       if (window.fileCaches[file].metadata) {
-        domEl.querySelector('.artist').innerHTML = window.fileCaches[file].metadata.performers.join(' / ')
-        domEl.querySelector('.emdash').innerHTML = ' — '
-        domEl.querySelector('.album').innerHTML = window.fileCaches[file].metadata.album
-        domEl.querySelector('.fileTitle').innerHTML = window.fileCaches[file].metadata.title
+        const performers = window.fileCaches[file].metadata.performers
+        if (performers) domEl.querySelector('.artist').innerHTML = performers.join(' / ')
+        else domEl.querySelector('.artist').innerHTML = '[unknown artist]'
+        const album = window.fileCaches[file].metadata.album
+        if (album) {
+          domEl.querySelector('.emdash').innerHTML = ' — '
+          domEl.querySelector('.album').innerHTML = window.fileCaches[file].metadata.album
+        } else {
+          domEl.querySelector('.emdash').innerHTML = ''
+          domEl.querySelector('.album').innerHTML = ''
+        }
+        domEl.querySelector('.fileTitle').innerHTML = window.fileCaches[file].metadata.title || '[untitled]'
 
         // set artwork
         const defaultMimeType = 'image/png'
@@ -601,10 +611,18 @@ function displayMetadata () {
     document.getElementById('duration').textContent = formatTime(window.fileCaches[window.currentFile].audioBuffer.duration)
     if (window.fileCaches[window.currentFile].metadata) {
       document.getElementById('file').classList.remove('musicIcon')
-      document.getElementById('artist').innerHTML = window.fileCaches[window.currentFile].metadata.performers.join(' / ')
-      document.getElementById('emdash').innerHTML = ' — '
-      document.getElementById('album').innerHTML = window.fileCaches[window.currentFile].metadata.album
-      document.getElementById('fileTitle').innerHTML = window.fileCaches[window.currentFile].metadata.title
+      const performers = window.fileCaches[window.currentFile].metadata.performers
+      if (performers) document.getElementById('artist').innerHTML = performers.join(' / ')
+      else document.getElementById('artist').innerHTML = '[unknown artist]'
+      const album = window.fileCaches[window.currentFile].metadata.album
+      if (album) {
+        document.getElementById('emdash').innerHTML = ' — '
+        document.getElementById('album').innerHTML = window.fileCaches[window.currentFile].metadata.album
+      } else {
+        document.getElementById('emdash').innerHTML = ''
+        document.getElementById('album').innerHTML = ''
+      }
+      document.getElementById('fileTitle').innerHTML = window.fileCaches[window.currentFile].metadata.title || '[untitled]'
     }
   }
   updateAlbumArt()
