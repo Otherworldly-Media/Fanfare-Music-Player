@@ -105,3 +105,8 @@ div.resizer {
 .tabulator-row.tabulator-moving {
   display: none !important;
 }
+
+.global-wait,
+.global-wait * {
+  cursor: wait !important;
+}
