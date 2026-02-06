@@ -132,7 +132,7 @@
   "devDependencies": {
     "@electron/asar": "4.0.1",
     "@electron/rebuild": "4.0.3",
-    "@playwright/test": "1.58.1",
+    "@playwright/test": "1.58.2",
     "cross-env": "10.1.0",
     "electron": "40.1.0",
     "electron-builder": "26.7.0",
