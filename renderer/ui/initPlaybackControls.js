@@ -273,6 +273,7 @@ async function loadFile (file) {
 
   // start loading
   window.loadingFile = file
+  if (!window.playing) document.documentElement.classList.add('global-wait')
   let pcmBuffer // var to store raw PCM audio data
   let audioBuffer // var to store audio binary in the Web Audio API's format
 
@@ -410,6 +411,7 @@ async function queueAudio (file, offset = 0, seek = false) {
     if (window.fileCaches[window.currentFile]) {
       source.start(0, offset)
       window.playing = true
+      document.documentElement.classList.remove('global-wait')
       window.fileCaches[window.currentFile].source = source
       window.currentSource = source
       window.currentSourceId = source._id
