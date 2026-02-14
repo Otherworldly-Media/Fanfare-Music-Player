@@ -201,9 +201,44 @@ nav#sidebar {
       }
     }
 
+    div.clearButtonContainer {
+      display: none;
+      position: relative;
+      top: 1px;
+
+      button {
+        border: 0;
+        background-color: transparent;
+
+        svg path {
+          stroke: #000;
+        }
+      }
+    }
+
     li:nth-child(1), li:nth-child(2) {
       hr {
         margin: 0;
+      }
+    }
+
+    li.showClearButton div.clearButtonContainer {
+      display: block;
+    }
+
+    li.highlightFile div.metadata {
+      background-color: var(--row-highlight);
+      color: var(--accent-color-contrast-color);
+      padding-left: 10px;
+      padding-right: 10px;
+      width: 100%;
+      position: relative;
+      left: -10px;
+
+      button {
+        svg path {
+          stroke: var(--accent-color-contrast-color);
+        }
       }
     }
 

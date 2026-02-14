@@ -183,7 +183,14 @@ module.exports = () => {
     let target = event.target
     while (target.id !== 'automaticPlayQueue' && target.id !== 'manualPlayQueue') {
       if (target.getAttribute('data-id')) {
-        console.log('TODO: highlight item', window.atob(target.getAttribute('data-id')))
+        if (target.classList.contains('highlightFile')) {
+          target.classList.remove('highlightFile')
+        } else {
+          target.parentNode.querySelectorAll('.highlightFile').forEach((el) => {
+            el.classList.remove('highlightFile')
+          })
+          target.classList.add('highlightFile')
+        }
         break
       } else target = target.parentNode
     }
@@ -196,7 +203,7 @@ module.exports = () => {
     let target = event.target
     while (target.id !== 'automaticPlayQueue' && target.id !== 'manualPlayQueue') {
       if (target.getAttribute('data-id')) {
-        console.log('TODO: play item', window.atob(target.getAttribute('data-id')))
+        window.playAudioFile(window.atob(target.getAttribute('data-id')))
         break
       } else target = target.parentNode
     }
@@ -209,8 +216,15 @@ module.exports = () => {
     let target = event.target
     while (target.id !== 'automaticPlayQueue' && target.id !== 'manualPlayQueue') {
       if (target.getAttribute('data-id')) {
-        console.log('TODO: show clear button', window.atob(target.getAttribute('data-id')))
-        // TODO: document.querySelector('button.clear svg')
+        target.classList.add('showClearButton')
+
+        // clear existing timeout for this specific element
+        if (target._clearButtonTimeout) window.clearTimeout(target._clearButtonTimeout)
+
+        // set new timeout for this specific element
+        target._clearButtonTimeout = window.setTimeout(() => {
+          target.classList.remove('showClearButton')
+        }, 5000)
         break
       } else target = target.parentNode
     }
@@ -343,8 +357,11 @@ async function showPlaybackNotification (file) {
   const waitForMetadata = async () => {
     const timeoutMs = 5000
     const start = Date.now()
-    while (!window.fileCaches[file]?.metadata && Date.now() - start < timeoutMs) {
-      await new Promise(resolve => setTimeout(resolve, 100))
+    while (
+      (!window.fileCaches[file]?.metadata || !window.fileCaches[file]?.metadata.pictures) &&
+      Date.now() - start < timeoutMs
+    ) {
+      await new Promise(resolve => window.setTimeout(resolve, 100))
     }
     return window.fileCaches[file]?.metadata
   }
@@ -398,7 +415,7 @@ async function loadFile (file) {
 
   // prevent attempting to load the file while it is already being loaded; this prevents lag while seeking
   async function waitForFileToFinishLoading (file) {
-    while (window.loadingFile === file) await new Promise(resolve => setTimeout(resolve, 50)) // check every 50ms
+    while (window.loadingFile === file) await new Promise(resolve => window.setTimeout(resolve, 50)) // check every 50ms
   }
   if (window.loadingFile === file) return await waitForFileToFinishLoading(file)
 
@@ -428,7 +445,7 @@ async function loadFile (file) {
         if (window.pcmChunks[file]?._complete) {
           resolve()
         } else {
-          setTimeout(checkComplete, 50)
+          window.setTimeout(checkComplete, 50)
         }
       }
       checkComplete()
@@ -472,7 +489,7 @@ async function loadFile (file) {
           }
         }
         channelOffset = chunkEnd
-        if (channelOffset < numberOfSamples) setTimeout(processChunk, 0) // yield to event loop to keep the UI responsive
+        if (channelOffset < numberOfSamples) window.setTimeout(processChunk, 0) // yield to event loop to keep the UI responsive
         else resolve()
       }
       processChunk()
@@ -612,6 +629,26 @@ function scheduleNextSource () {
   window.debounceScheduleNextSource = true
 }
 
+// called when the play queue changes
+function rescheduleNextSource () {
+  // stop and disconnect any previously scheduled next source
+  if (window.scheduledNextSource) {
+    try { window.scheduledNextSource.stop() } catch (e) {}
+    window.scheduledNextSource.disconnect()
+    window.scheduledNextSource = null
+  }
+
+  // recalculate next file based on current queue state
+  let nextFile
+  if (window.repeat === 'file') nextFile = window.currentFile
+  else if (window.manualPlayQueue[0]) nextFile = window.manualPlayQueue[0]
+  else if (window.automaticPlayQueue[0]) nextFile = window.automaticPlayQueue[0]
+  window.nextFile = nextFile
+
+  // reschedule with the updated next file
+  scheduleNextSource()
+}
+
 async function preloadNextFile () {
   let nextFile
   if (window.repeat === 'file') nextFile = window.currentFile // the current file is repeating
@@ -644,6 +681,7 @@ async function renderQueue (which) {
         </div>
       </li>
     `
+  const clearButtonSvg = '<svg viewBox="0 0 16 16" width="18" height="18"><path d="M 1 1 L 15 15 M 1 15 L 15 1" fill="none" stroke-width="2" />'
   for (const file of window[which]) {
     const domId = window.btoa(file)
     items += `
@@ -660,6 +698,9 @@ async function renderQueue (which) {
             <div class="durationContainer">
               <p class="duration">…</p>
             </div>
+            <div class="clearButtonContainer">
+              <button>${clearButtonSvg}</button>
+            </div>
           </div>
         </li>
       `
@@ -670,6 +711,7 @@ async function renderQueue (which) {
     const which = event.target.querySelector('button').value
     clearPlayQueueImages()
     window[which] = []
+    rescheduleNextSource()
     document.getElementById(which).innerHTML = ''
     setPlayQueueImages()
   })
@@ -687,6 +729,9 @@ async function renderQueue (which) {
     await updateQueueMetadata(file)
   }
   window.preloading = false
+
+  clearPlayQueueImages()
+  setPlayQueueImages()
 
   // purge automatic and manual play queues of any files that have been cached for some time and are no longer in the queue
   const now = Date.now()
@@ -731,6 +776,23 @@ async function updateQueueMetadata (file) {
       } else {
         artworkMimeType = defaultMimeType
         artworkDataUri = defaultDataUri
+      }
+
+      if (!domEl.clearButtonClickEventAttached) {
+        domEl.clearButtonClickEventAttached = true
+        domEl.querySelector('.clearButtonContainer button').addEventListener('click', (event) => {
+          let target = event.target
+          while (target.id !== 'automaticPlayQueue' && target.id !== 'manualPlayQueue') {
+            target = target.parentNode
+          }
+          const queue = target.id
+          const index = Array.from(target.children).indexOf(domEl) - 1
+          domEl.setAttribute('hidden', 'hidden')
+          window[queue].splice(index, 1)
+          rescheduleNextSource()
+          clearPlayQueueImages()
+          setPlayQueueImages()
+        })
       }
     }
 
@@ -791,7 +853,7 @@ function updateAlbumArt () {
     // document.startViewTransition(() => {
     document.getElementById('artwork').style.backgroundImage = `url("data:${artworkMimeType};base64,${artworkDataUri}")`
     // })
-    setTimeout(() => {
+    window.setTimeout(() => {
       document.getElementById('artwork').style.viewTransitionName = ''
     }, 1000)
   }
@@ -1048,9 +1110,10 @@ function addNextFilesToAutomaticPlayQueue () {
 }
 
 function clearPlayQueueImages () {
-  if (window.currentFile) window.table.updateData([{ file_path: window.currentFile, playback_image: null }])
-  for (const file of window.manualPlayQueue) if (window.currentFile !== file) window.table.updateData([{ file_path: file, playback_image: null }])
-  for (const file of window.automaticPlayQueue) if (window.currentFile !== file) window.table.updateData([{ file_path: file, playback_image: null }])
+  const visibleRows = window.table.getRows('active')
+  for (const row of visibleRows) {
+    window.table.updateData([{ file_path: row.getData().file_path, playback_image: null }])
+  }
 }
 
 function setPlayQueueImages () {

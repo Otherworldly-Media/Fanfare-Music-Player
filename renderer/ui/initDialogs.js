@@ -128,7 +128,7 @@ module.exports = () => {
       })
 
       dialogEl.showModal()
-      setTimeout(() => {
+      window.setTimeout(() => {
         inputEl.focus()
         inputEl.selectionStart = inputEl.selectionEnd = inputEl.value.length
       }, 0)
