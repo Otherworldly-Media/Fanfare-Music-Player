@@ -139,7 +139,7 @@
     "electron-builder": "26.7.0",
     "sass": "1.97.3",
     "standard": "17.1.2",
-    "webpack": "5.105.2"
+    "webpack": "5.105.3"
   },
   "scripts": {
     "start": "cross-env DEV_MODE=true node build/bundle-cli.js && cross-env DEV_MODE=true electron .",
