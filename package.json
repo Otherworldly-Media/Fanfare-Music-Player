@@ -114,7 +114,7 @@
   },
   "dependencies": {
     "@braintree/sanitize-url": "7.1.2",
-    "better-sqlite3": "12.6.2",
+    "better-sqlite3": "12.9.0",
     "electron-context-menu": "4.1.1",
     "electron-store": "11.0.2",
     "electron-window-state": "5.0.3",
