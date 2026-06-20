@@ -128,7 +128,7 @@
     "tabulator-tables": "6.4.0",
     "teddy": "1.1.4",
     "tippy.js": "6.3.7",
-    "tmp": "0.2.5"
+    "tmp": "0.2.7"
   },
   "devDependencies": {
     "@electron/asar": "4.2.0",
